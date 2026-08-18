@@ -1,0 +1,518 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+    <title>PrintLab — Submit File</title>
+
+    <link rel="stylesheet" href="submit.css">
+
+</head>
+
+<body>
+
+
+    <!-- =====================================================
+         NAVBAR
+    ====================================================== -->
+
+    <nav class="navbar">
+
+        <a href="index.html" class="logo">
+            Print<span>Lab</span>
+        </a>
+
+
+        <div class="nav-links">
+
+            <a href="index.html">
+                Home
+            </a>
+
+            <a href="index.html#how-it-works">
+                How it works
+            </a>
+
+            <a href="index.html#about">
+                About
+            </a>
+
+        </div>
+
+
+        <a href="submit.html" class="nav-button">
+            Start a Print
+        </a>
+
+    </nav>
+
+
+
+    <!-- =====================================================
+         PAGE HEADER
+    ====================================================== -->
+
+    <header class="submit-header">
+
+        <h1>
+            Submit your file
+        </h1>
+
+        <p>
+            Upload your 3D model, choose your print settings,
+            and select how you want to receive your finished part.
+        </p>
+
+    </header>
+
+
+
+    <!-- =====================================================
+         FORM
+    ====================================================== -->
+
+    <main class="submit-container">
+
+
+        <!-- =================================================
+             FILE UPLOAD
+        ================================================== -->
+
+        <section class="form-section">
+
+            <h2>
+                1. Upload your 3D file
+            </h2>
+
+            <p class="form-section-description">
+                Upload the 3D model you want us to print.
+            </p>
+
+
+            <div class="upload-box">
+
+                <div class="upload-icon">
+                    ↑
+                </div>
+
+                <h3>
+                    Drop your file here
+                </h3>
+
+                <p>
+                    or click to browse your computer
+                </p>
+
+
+                <div class="file-types">
+
+                    <span>
+                        STL
+                    </span>
+
+                    <span>
+                        OBJ
+                    </span>
+
+                    <span>
+                        3MF
+                    </span>
+
+                    <span>
+                        STEP
+                    </span>
+
+                </div>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             PRINT SETTINGS
+        ================================================== -->
+
+        <section class="form-section">
+
+            <h2>
+                2. Print settings
+            </h2>
+
+            <p class="form-section-description">
+                Choose how you want your model to be printed.
+            </p>
+
+
+            <!-- MATERIAL -->
+
+            <div class="input-group">
+
+                <label for="material">
+                    Material
+                </label>
+
+                <select id="material" name="material">
+
+                    <option value="PLA">
+                        PLA
+                    </option>
+
+                    <option value="PETG">
+                        PETG
+                    </option>
+
+                    <option value="TPU">
+                        TPU
+                    </option>
+
+                </select>
+
+            </div>
+
+
+
+            <!-- LAYER HEIGHT -->
+
+            <div class="input-group">
+
+                <label>
+                    Layer height
+                </label>
+
+
+                <div class="layer-options">
+
+
+                    <div class="layer-option">
+
+                        <input
+                            type="radio"
+                            name="layer"
+                            id="layer01"
+                            value="0.1"
+                        >
+
+                        <label for="layer01">
+
+                            <strong>
+                                0.1 mm
+                            </strong>
+
+                            <span>
+                                High detail
+                            </span>
+
+                        </label>
+
+                    </div>
+
+
+
+                    <div class="layer-option">
+
+                        <input
+                            type="radio"
+                            name="layer"
+                            id="layer02"
+                            value="0.2"
+                            checked
+                        >
+
+                        <label for="layer02">
+
+                            <strong>
+                                0.2 mm
+                            </strong>
+
+                            <span>
+                                Standard
+                            </span>
+
+                        </label>
+
+                    </div>
+
+
+
+                    <div class="layer-option">
+
+                        <input
+                            type="radio"
+                            name="layer"
+                            id="layer03"
+                            value="0.3"
+                        >
+
+                        <label for="layer03">
+
+                            <strong>
+                                0.3 mm
+                            </strong>
+
+                            <span>
+                                Fast
+                            </span>
+
+                        </label>
+
+                    </div>
+
+
+
+                    <div class="layer-option">
+
+                        <input
+                            type="radio"
+                            name="layer"
+                            id="layer04"
+                            value="0.4"
+                        >
+
+                        <label for="layer04">
+
+                            <strong>
+                                0.4 mm
+                            </strong>
+
+                            <span>
+                                Very fast
+                            </span>
+
+                        </label>
+
+                    </div>
+
+
+
+                    <div class="layer-option">
+
+                        <input
+                            type="radio"
+                            name="layer"
+                            id="layer05"
+                            value="0.5"
+                        >
+
+                        <label for="layer05">
+
+                            <strong>
+                                0.5 mm
+                            </strong>
+
+                            <span>
+                                Draft
+                            </span>
+
+                        </label>
+
+                    </div>
+
+
+                </div>
+
+            </div>
+
+
+
+            <!-- COLOR -->
+
+            <div class="input-group">
+
+                <label for="color">
+                    Color
+                </label>
+
+                <select id="color" name="color">
+
+                    <option value="black">
+                        Black
+                    </option>
+
+                    <option value="white">
+                        White
+                    </option>
+
+                    <option value="gray">
+                        Gray
+                    </option>
+
+                    <option value="red">
+                        Red
+                    </option>
+
+                    <option value="blue">
+                        Blue
+                    </option>
+
+                    <option value="green">
+                        Green
+                    </option>
+
+                </select>
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             DELIVERY
+        ================================================== -->
+
+        <section class="form-section">
+
+            <h2>
+                3. Delivery
+            </h2>
+
+            <p class="form-section-description">
+                How would you like to receive your print?
+            </p>
+
+
+            <div class="delivery-options">
+
+
+                <!-- PICKUP -->
+
+                <div class="delivery-option">
+
+                    <input
+                        type="radio"
+                        name="delivery"
+                        id="pickup"
+                        value="pickup"
+                        checked
+                    >
+
+                    <label for="pickup">
+
+                        <h3>
+                            📍 Local pickup
+                        </h3>
+
+                        <p>
+                            Pick up your finished print
+                            locally in Hamburg.
+                        </p>
+
+                    </label>
+
+                </div>
+
+
+
+                <!-- SHIPPING -->
+
+                <div class="delivery-option">
+
+                    <input
+                        type="radio"
+                        name="delivery"
+                        id="shipping"
+                        value="shipping"
+                    >
+
+                    <label for="shipping">
+
+                        <h3>
+                            📦 Shipping
+                        </h3>
+
+                        <p>
+                            Have your finished print
+                            shipped to you.
+                        </p>
+
+                    </label>
+
+                </div>
+
+
+            </div>
+
+        </section>
+
+
+
+        <!-- =================================================
+             ORDER / PRICE
+        ================================================== -->
+
+        <section class="form-section">
+
+            <h2>
+                4. Order
+            </h2>
+
+            <p class="form-section-description">
+                Review your order before submitting.
+            </p>
+
+
+            <div class="price-preview">
+
+                <span>
+                    Estimated total
+                </span>
+
+                <strong class="price">
+                    €0.00
+                </strong>
+
+            </div>
+
+
+            <button
+                type="submit"
+                class="primary-button submit-button"
+            >
+                Submit print request
+            </button>
+
+        </section>
+
+
+    </main>
+
+
+
+    <!-- =====================================================
+         FOOTER
+    ====================================================== -->
+
+    <footer>
+
+        <p>
+            © 2026 PrintLab
+        </p>
+
+
+        <div class="footer-links">
+
+            <a href="#">
+                Privacy
+            </a>
+
+            <a href="#">
+                Terms
+            </a>
+
+            <a href="#">
+                Contact
+            </a>
+
+        </div>
+
+    </footer>
+
+
+</body>
+
+</html>
