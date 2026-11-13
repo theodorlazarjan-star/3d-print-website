@@ -1,0 +1,75 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <meta name="description" content="3D-Druck, 3D-Scanning und individuelle 3D-Konstruktion aus einer Hand.">
+    <title>PrintLab – 3D-Druck, Scan & Design</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='site.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a>
+        <div class="nav-links">
+            <a class="nav-active" href="{{ url_for('home') }}">Home</a>
+            <a href="{{ url_for('submit') }}">Drucken</a>
+            <a href="{{ url_for('scan') }}">Scannen</a>
+            <a href="{{ url_for('design') }}">Beauftragen</a>
+        </div>
+        <a class="nav-button" href="{{ url_for('submit') }}">Drucken starten</a>
+    </nav>
+
+    <main>
+        <section class="hero home-hero">
+            <div class="hero-copy">
+                <p class="eyebrow">3D-WERKSTATT · DIGITAL & LOKAL</p>
+                <h1>Aus einer Idee wird ein <em>echtes Teil.</em></h1>
+                <p class="hero-lead">3D-Druck, Scanning und individuelle Konstruktion – unkompliziert, funktional und mit einer klaren nächsten Aktion.</p>
+                <div class="hero-actions">
+                    <a class="button button-primary" href="{{ url_for('submit') }}">Drucken <span>↗</span></a>
+                    <a class="button button-quiet" href="{{ url_for('scan') }}">Scannen <span>↗</span></a>
+                    <a class="button button-quiet" href="{{ url_for('design') }}">Beauftragen <span>↗</span></a>
+                </div>
+                <div class="hero-proof">
+                    <div><strong>STL · OBJ · 3MF</strong><span>Dateien direkt hochladen</span></div>
+                    <div><strong>Laser-Distance</strong><span>Scan für Ersatzteile</span></div>
+                    <div><strong>5 € / 100 g</strong><span>Materialpreis als Basis</span></div>
+                </div>
+            </div>
+            <div class="hero-art" aria-label="Der 3D-Scanner im Einsatz">
+                <img src="{{ url_for('static', filename='images/service-scan-v2.png') }}" alt="Professioneller Desktop-3D-Scanner mit Ring-Gantry">
+                <span class="image-caption">Eigener 3D-Scanner · Drehscheibe + Laser</span>
+            </div>
+        </section>
+
+        <section class="service-section" id="leistungen">
+            <div class="section-intro">
+                <p class="eyebrow">DIREKT AUSWÄHLEN</p>
+                <h2>Was möchtest du machen?</h2>
+                <p>Jede Leistung hat ihren eigenen Weg – wähle einfach den passenden Balken.</p>
+            </div>
+            <div class="service-list">
+                <a class="service-row service-print" href="{{ url_for('submit') }}">
+                    <div class="service-row-copy"><span class="row-number">01</span><h3>3D-Designs drucken</h3><p>STL, 3MF oder OBJ hochladen und direkt eine grobe Material- und Preisschätzung erhalten.</p><span class="text-link">Zum Druckauftrag <b>↗</b></span></div>
+                    <div class="service-row-image"><img src="{{ url_for('static', filename='images/service-print.png') }}" alt="3D-Drucker druckt ein schwarzes Bauteil"><span class="row-arrow">↗</span></div>
+                </a>
+                <a class="service-row service-scan" href="{{ url_for('scan') }}">
+                    <div class="service-row-copy"><span class="row-number">02</span><h3>3D-Designs scannen</h3><p>Ein Objekt rundum erfassen und daraus die Grundlage für ein Ersatzteil oder einen neuen Druck machen.</p><span class="text-link">Zum 3D-Scan <b>↗</b></span></div>
+                    <div class="service-row-image"><img src="{{ url_for('static', filename='images/service-scan-v2.png') }}" alt="Professioneller Desktop-3D-Scanner mit Ring-Gantry"><span class="row-arrow">↗</span></div>
+                </a>
+                <a class="service-row service-design" href="{{ url_for('design') }}">
+                    <div class="service-row-copy"><span class="row-number">03</span><h3>3D-Designs beauftragen</h3><p>Skizze, Foto oder Idee schicken und daraus ein sauberes 3D-Modell für dein Projekt entwickeln lassen.</p><span class="text-link">Design anfragen <b>↗</b></span></div>
+                    <div class="service-row-image"><img src="{{ url_for('static', filename='images/service-design.png') }}" alt="Fusion-360-Konstruktion eines 3D-Bauteils"><span class="row-arrow">↗</span></div>
+                </a>
+            </div>
+        </section>
+
+        <section class="cta-section">
+            <div><p class="eyebrow">BEREIT FÜR DEN NÄCHSTEN SCHRITT?</p><h2>Bring deine Idee<br><em>in die dritte Dimension.</em></h2></div>
+            <a class="button button-light" href="{{ url_for('submit') }}">Druck starten <span>↗</span></a>
+        </section>
+    </main>
+
+    <footer class="footer"><a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a><div class="footer-links"><a href="{{ url_for('home') }}">Home</a><a href="{{ url_for('submit') }}">Drucken</a><a href="{{ url_for('scan') }}">Scannen</a><a href="{{ url_for('design') }}">Beauftragen</a></div><p>© 2026 PrintLab</p></footer>
+</body>
+</html>

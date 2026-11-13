@@ -1,0 +1,28 @@
+<!doctype html>
+<html lang="de">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PrintLab – Upload gespeichert</title><link rel="stylesheet" href="{{ url_for('static', filename='feedback.css') }}"></head>
+<body>
+    <nav class="navbar"><a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a><a class="nav-button" href="{{ url_for('submit') }}">Neuen Druck starten</a></nav>
+    <main class="feedback-page">
+        <p class="eyebrow">UPLOAD GESPEICHERT</p>
+        <div class="success-mark">✓</div>
+        <h1>Deine Dateien sind <em>angekommen.</em></h1>
+        <p class="lead">{{ items|length }} Druckposition{% if items|length != 1 %}en{% endif %} wurde{% if items|length != 1 %}n{% endif %} im Projekt gespeichert. Die Werte unten bilden deine vorläufige Kalkulation ab.</p>
+        <section class="uploaded-items">
+            {% for item in items %}
+            <div class="uploaded-item"><div><strong>{{ item.filename }}</strong><span>{{ item.material }} · {{ item.quantity }} × · {% if item.stl_data %}{{ '%.1f'|format(item.weight) }} g pro Stück{% else %}Preis nach Prüfung{% endif %}</span></div><strong>{% if item.stl_data %}{{ '%.2f'|format(item.material_cost + item.machine_cost) }} €{% else %}Offen{% endif %}</strong></div>
+            {% if item.stl_data %}<div class="info-box"><strong>STL-Geometrie erkannt · {{ item.filename }}</strong><span>Füllung {{ item.stl_data.infill }} % · Volumen ca. {{ '%.2f'|format(item.stl_data.volume) }} cm³ · etwa {{ '%.1f'|format(item.stl_data.estimated_weight) }} g und {{ '%.2f'|format(item.stl_data.estimated_hours) }} h pro Stück</span><small>Gewicht und Druckzeit sind Näherungswerte. Der tatsächliche Verbrauch hängt unter anderem von Wandstärke, Stützmaterial und Slicer-Einstellungen ab.</small></div>{% endif %}
+            {% endfor %}
+        </section>
+        <section class="summary-card">
+            <div><span>Materialkosten</span><strong>{{ '%.2f'|format(estimate.material_cost) }} €</strong></div>
+            <div><span>Maschinenzeit</span><strong>{{ '%.2f'|format(estimate.machine_cost) }} €</strong></div>
+            <div><span>Menge</span><strong>{{ estimate.quantity }} ×</strong></div>
+            <div><span>Versand</span><strong>{{ '%.2f'|format(estimate.shipping) }} €</strong></div>
+            <div class="total"><span>Gesamtschätzung</span><strong>{% if estimate.complete %}{{ '%.2f'|format(estimate.total) }} €{% else %}Preis nach Prüfung{% endif %}</strong></div>
+        </section>
+        <div class="actions"><a class="button button-primary" href="{{ url_for('submit') }}">Weitere Datei hochladen <span>↗</span></a><a class="button button-quiet" href="{{ url_for('home') }}">Zur Startseite</a></div>
+    </main>
+    <footer class="footer"><a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a><p>3D-Druck · Scanning · Design</p><p>© 2026 PrintLab</p></footer>
+</body>
+</html>

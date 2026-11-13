@@ -1,0 +1,65 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PrintLab – {{ '3D-Scan' if service == 'scan' else '3D-Design' }}</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='service.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a>
+        <div class="nav-links"><a href="{{ url_for('home') }}">Home</a><a href="{{ url_for('submit') }}">Drucken</a><a href="{{ url_for('scan') }}">Scannen</a><a href="{{ url_for('design') }}">Beauftragen</a></div>
+        <a class="nav-button" href="{{ url_for('submit') }}">Drucken starten</a>
+    </nav>
+
+    <main class="service-page">
+        <section class="service-hero">
+            <div class="service-copy">
+                <p class="eyebrow">{{ '02 · 3D-SCANNING' if service == 'scan' else '03 · 3D-DESIGN' }}</p>
+                {% if service == 'scan' %}
+                <h1>Vom Objekt zum <em>digitalen Ersatzteil.</em></h1>
+                <p class="lead">Dein Bauteil muss nicht mehr existieren, um neu zu entstehen. Wir erfassen es mit einer Drehscheibe und einem Laser-Distanzsensor und erstellen daraus eine digitale Grundlage für die weitere Bearbeitung oder den Druck.</p>
+                {% else %}
+                <h1>Von der Skizze zum <em>fertigen 3D-Modell.</em></h1>
+                <p class="lead">Du hast eine Idee, ein Foto, eine Handskizze oder nur ein altes Teil? Wir entwickeln daraus ein sauberes 3D-Modell, das sich weiterverwenden, anpassen und drucken lässt.</p>
+                {% endif %}
+                <a class="button button-primary" href="#anfrage">{{ 'Scan anfragen' if service == 'scan' else 'Design anfragen' }} <span>↓</span></a>
+            </div>
+            <div class="service-art" aria-label="{{ 'Darstellung des 3D-Scanners' if service == 'scan' else 'Darstellung eines 3D-Designs' }}">
+                {% if service == 'scan' %}
+                    <img src="{{ url_for('static', filename='images/service-scan-v2.png') }}" alt="Professioneller Desktop-3D-Scanner mit Ring-Gantry">
+                    <span class="art-tag tag-a">3D-SCAN</span><span class="art-tag tag-b">ERSATZTEIL</span>
+                {% else %}
+                    <img src="{{ url_for('static', filename='images/service-design.png') }}" alt="3D-Konstruktion in Fusion 360">
+                    <span class="art-tag tag-a">SKIZZE → MODELL</span><span class="art-tag tag-b">DRUCKBEREIT</span>
+                {% endif %}
+            </div>
+        </section>
+
+        <section class="service-details">
+            {% if service == 'scan' %}
+            <div><p class="eyebrow">SO FUNKTIONIERT DER SCAN</p><h2>Ein physisches Teil wird zu verwertbaren Daten.</h2><p>Die rotierende Scheibe bringt das Objekt aus allen Richtungen vor den Sensor. Zusätzlich kann die Höhe schrittweise erfasst werden. Das Ergebnis ist eine Punktwolke beziehungsweise ein 3D-Modell als Basis für Rekonstruktion und Druck.</p></div>
+            <div class="detail-list"><div><b>01</b><span><strong>Objekt positionieren</strong><small>Bauteil auf die Drehscheibe setzen</small></span></div><div><b>02</b><span><strong>Rundum messen</strong><small>Rotation und Laser-Distanzmessung</small></span></div><div><b>03</b><span><strong>Modell weiterverarbeiten</strong><small>Für Ersatzteil, Anpassung oder Druck</small></span></div></div>
+            {% else %}
+            <div><p class="eyebrow">VON DER IDEE ZUM MODELL</p><h2>Design, das mit deinem Projekt mitwächst.</h2><p>Wir klären zuerst Zweck, Maße und gewünschte Funktion. Danach entsteht ein editierbares 3D-Modell, das für Prototypen, Ersatzteile oder eine Serie vorbereitet werden kann.</p></div>
+            <div class="detail-list"><div><b>01</b><span><strong>Idee beschreiben</strong><small>Skizze, Foto, Maße oder Referenz senden</small></span></div><div><b>02</b><span><strong>Konstruktion abstimmen</strong><small>Funktion und Details gemeinsam klären</small></span></div><div><b>03</b><span><strong>Datei erhalten</strong><small>3D-Modell für Druck und weitere Nutzung</small></span></div></div>
+            {% endif %}
+        </section>
+
+        <section class="request-section" id="anfrage">
+            <div><p class="eyebrow">NÄCHSTER SCHRITT</p><h2>{{ 'Scan kurz beschreiben.' if service == 'scan' else 'Projekt kurz beschreiben.' }}</h2><p>Schick uns ein paar Eckdaten. Wir melden uns mit den nächsten sinnvollen Schritten zurück.</p></div>
+            <form class="request-form" action="{{ url_for('service_request') }}" method="post">
+                <input type="hidden" name="service" value="{{ service }}">
+                <label><span>Name</span><input name="name" type="text" required placeholder="Dein Name"></label>
+                <label><span>E-Mail</span><input name="email" type="email" required placeholder="du@beispiel.de"></label>
+                <label><span>{{ 'Was soll gescannt werden?' if service == 'scan' else 'Was soll entstehen?' }}</span><textarea name="message" rows="5" required placeholder="Beschreibe kurz Objekt, Maße, Ziel oder vorhandene Unterlagen …"></textarea></label>
+                <button class="button button-primary" type="submit">Anfrage senden <span>↗</span></button>
+                <p class="form-note">Dies ist zunächst eine Anfragefunktion für den Prototyp. E-Mail-Versand und Auftragsverwaltung können später ergänzt werden.</p>
+            </form>
+        </section>
+    </main>
+
+    <footer class="footer"><a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a><p>3D-Druck · Scanning · Design</p><p>© 2026 PrintLab</p></footer>
+</body>
+</html>

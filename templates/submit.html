@@ -1,0 +1,385 @@
+<!doctype html>
+<html lang="de">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PrintLab – Druckauftrag</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='submit.css') }}">
+</head>
+<body>
+    <nav class="navbar">
+        <a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a>
+        <div class="nav-links">
+            <a href="{{ url_for('home') }}">Home</a>
+            <a href="{{ url_for('submit') }}">Drucken</a>
+            <a href="{{ url_for('scan') }}">Scannen</a>
+            <a href="{{ url_for('design') }}">Beauftragen</a>
+        </div>
+        <a class="nav-button" href="{{ url_for('submit') }}">Drucken starten</a>
+    </nav>
+
+    <main class="submit-page">
+        <header class="submit-header">
+            <p class="eyebrow">01 · 3D-DRUCK</p>
+            <h1>Dein Modell.<br><em>Unser Druck.</em></h1>
+            <p>STL, 3MF, OBJ oder STEP hochladen. Für STL-Dateien schätzen wir Materialbedarf und Preis anhand deiner Einstellungen.</p>
+        </header>
+
+        {% if error %}
+        <div class="notice notice-error">{{ error }}</div>
+        {% endif %}
+
+        <form class="print-form" action="{{ url_for('upload') }}" method="post" enctype="multipart/form-data" id="printForm">
+            <section class="form-card upload-card">
+                <div class="card-heading"><span>01</span><div><h2>3D-Datei hochladen</h2><p>Wir akzeptieren die gängigen CAD- und Mesh-Formate.</p></div></div>
+                <input id="fileInput" name="files" type="file" accept=".stl,.3mf,.obj,.step,.stp" multiple hidden>
+                <label class="upload-box" id="uploadBox" for="fileInput">
+                    <span class="upload-arrow">↑</span>
+                    <strong>Dateien hier ablegen</strong>
+                    <span>oder klicken, um STL-Modelle auszuwählen</span>
+                    <div class="file-types"><span>STL</span><span>3MF</span><span>OBJ</span><span>STEP</span></div>
+                </label>
+                <div class="order-items" id="orderItems" aria-live="polite">
+                    <div class="order-empty" id="orderEmpty">Deine Druckdateien erscheinen hier als Bestellpositionen.</div>
+                </div>
+                <p class="field-hint">STL-Vorschau und Preis erscheinen direkt als Bestellposition. Material und Füllung kannst du unter „Modell anpassen“ ändern.</p>
+            </section>
+
+            <div class="form-grid">
+                <section class="form-card">
+                    <div class="card-heading"><span>02</span><div><h2>Übergabe</h2><p>Wie soll dein fertiges Teil zu dir kommen?</p></div></div>
+                    <div class="delivery-options">
+                        <label class="delivery-option"><input type="radio" name="delivery" value="pickup" checked><span><strong>Abholung</strong><small>Persönlich und ohne Versandkosten</small></span></label>
+                        <label class="delivery-option"><input type="radio" name="delivery" value="shipping"><span><strong>Versand</strong><small>Versandpauschale 4,90 €</small></span></label>
+                    </div>
+                </section>
+            </div>
+
+            <section class="form-card order-card">
+                <div class="card-heading"><span>03</span><div><h2>Vorläufige Kalkulation</h2><p>Die Werte dienen als erste Orientierung und werden vor dem Druck bestätigt.</p></div></div>
+                <div class="estimate-layout">
+                    <div class="estimate-lines">
+                        <div><span>Material</span><strong id="materialCost">0,00 €</strong></div>
+                        <div><span>Maschinenzeit</span><strong id="machineCost">0,00 €</strong></div>
+                        <div><span>Zwischensumme</span><strong id="subtotal">0,00 €</strong></div>
+                        <div><span>Versand</span><strong id="shippingCost">0,00 €</strong></div>
+                    </div>
+                    <div class="estimate-total"><span>Gesamtschätzung</span><strong id="total">0,00 €</strong><small id="estimateHint">Dateien hinzufügen, um den Preis zu sehen</small></div>
+                </div>
+                <button class="button button-primary submit-button" id="submitButton" type="submit">Druckauftrag senden <span>↗</span></button>
+                <p class="form-hint">Mit dem Absenden wird die Datei lokal im Projekt gespeichert. Eine echte Bestell- und Zahlungsabwicklung kann später angeschlossen werden.</p>
+            </section>
+        </form>
+    </main>
+
+    <footer class="footer"><a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a><p>3D-Druck · Scanning · Design</p><p>© 2026 PrintLab</p></footer>
+
+    <script>
+        const pricing = {{ material_pricing | tojson }};
+        const fileInput = document.getElementById('fileInput');
+        const uploadBox = document.getElementById('uploadBox');
+        const orderItems = document.getElementById('orderItems');
+        const orderEmpty = document.getElementById('orderEmpty');
+        const selectedItems = [];
+        let nextItemId = 1;
+
+        const euro = (value) => new Intl.NumberFormat('de-DE', { style: 'currency', currency: 'EUR' }).format(value);
+        const number = (value) => Math.max(0, Number.parseFloat(String(value).replace(',', '.')) || 0);
+        const roundMoney = (value) => Math.round((value + Number.EPSILON) * 100) / 100;
+
+        function createElement(tag, className, text) {
+            const element = document.createElement(tag);
+            if (className) element.className = className;
+            if (text !== undefined) element.textContent = text;
+            return element;
+        }
+
+        function triangleVolume(a, b, c) {
+            const cross = [b[1] * c[2] - b[2] * c[1], b[2] * c[0] - b[0] * c[2], b[0] * c[1] - b[1] * c[0]];
+            return (a[0] * cross[0] + a[1] * cross[1] + a[2] * cross[2]) / 6;
+        }
+
+        function includeBounds(bounds, point) {
+            for (let axis = 0; axis < 3; axis++) {
+                bounds.min[axis] = Math.min(bounds.min[axis], point[axis]);
+                bounds.max[axis] = Math.max(bounds.max[axis], point[axis]);
+            }
+        }
+
+        async function readStl(file) {
+            const buffer = await file.arrayBuffer();
+            const bounds = { min: [Infinity, Infinity, Infinity], max: [-Infinity, -Infinity, -Infinity] };
+            let volume = 0;
+            let triangles = [];
+
+            if (buffer.byteLength >= 84) {
+                const view = new DataView(buffer);
+                const count = view.getUint32(80, true);
+                const end = 84 + count * 50;
+                if (count > 0 && count < 10000000 && end <= buffer.byteLength) {
+                    const stride = Math.max(1, Math.ceil(count / 28000));
+                    for (let index = 0; index < count; index++) {
+                        const offset = 84 + index * 50;
+                        const point = (relative) => [view.getFloat32(offset + relative, true), view.getFloat32(offset + relative + 4, true), view.getFloat32(offset + relative + 8, true)];
+                        const a = point(12), b = point(24), c = point(36);
+                        includeBounds(bounds, a); includeBounds(bounds, b); includeBounds(bounds, c);
+                        volume += triangleVolume(a, b, c);
+                        if (index % stride === 0) triangles.push(...a, ...b, ...c);
+                    }
+                    return { volume: Math.abs(volume) / 1000, triangles: new Float32Array(triangles), bounds };
+                }
+            }
+
+            const source = new TextDecoder().decode(buffer);
+            const vertexPattern = /vertex\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)\s+([-+0-9.eE]+)/gi;
+            let match, face = [], triangleIndex = 0, stride = 1;
+            while ((match = vertexPattern.exec(source)) !== null) {
+                face.push([Number(match[1]), Number(match[2]), Number(match[3])]);
+                if (face.length !== 3) continue;
+                const [a, b, c] = face;
+                includeBounds(bounds, a); includeBounds(bounds, b); includeBounds(bounds, c);
+                volume += triangleVolume(a, b, c);
+                if (triangleIndex < 28000) triangles.push(...a, ...b, ...c);
+                else if (triangleIndex % 4 === 0 && triangles.length < 252000) triangles.push(...a, ...b, ...c);
+                triangleIndex++;
+                face = [];
+            }
+            if (triangleIndex === 0) return null;
+            return { volume: Math.abs(volume) / 1000, triangles: new Float32Array(triangles), bounds };
+        }
+
+        function drawMesh(canvas, item) {
+            const context = canvas.getContext('2d');
+            const width = canvas.width = 320, height = canvas.height = 220;
+            context.fillStyle = '#edf1eb'; context.fillRect(0, 0, width, height);
+            if (!item.mesh || !item.mesh.triangles.length) {
+                context.fillStyle = '#77857d'; context.font = '12px Manrope, Arial'; context.textAlign = 'center';
+                context.fillText('STL-Vorschau', width / 2, height / 2);
+                return;
+            }
+
+            const { triangles, bounds } = item.mesh;
+            const center = bounds.min.map((minimum, axis) => (minimum + bounds.max[axis]) / 2);
+            const maxDimension = Math.max(...bounds.max.map((maximum, axis) => maximum - bounds.min[axis]), 1);
+            const scale = Math.min(width * .66, height * .63) / maxDimension;
+            const cosY = Math.cos(item.rotationY), sinY = Math.sin(item.rotationY);
+            const cosX = Math.cos(.72), sinX = Math.sin(.72);
+            const faces = [];
+
+            for (let i = 0; i < triangles.length; i += 9) {
+                const points = [];
+                for (let v = 0; v < 9; v += 3) {
+                    const x = triangles[i + v] - center[0], y = triangles[i + v + 1] - center[1], z = triangles[i + v + 2] - center[2];
+                    const turnedX = x * cosY + z * sinY;
+                    const turnedZ = -x * sinY + z * cosY;
+                    points.push([turnedX, y * cosX - turnedZ * sinX, y * sinX + turnedZ * cosX]);
+                }
+                const [a, b, c] = points;
+                const u = [b[0] - a[0], b[1] - a[1], b[2] - a[2]], v = [c[0] - a[0], c[1] - a[1], c[2] - a[2]];
+                const normal = [u[1] * v[2] - u[2] * v[1], u[2] * v[0] - u[0] * v[2], u[0] * v[1] - u[1] * v[0]];
+                const length = Math.hypot(...normal) || 1;
+                const light = Math.max(.24, Math.abs((normal[0] * -.35 + normal[1] * .65 + normal[2] * .68) / length));
+                faces.push({ points, depth: (a[2] + b[2] + c[2]) / 3, light });
+            }
+            faces.sort((a, b) => a.depth - b.depth);
+
+            context.save();
+            context.translate(0, 9);
+            context.fillStyle = 'rgba(16,35,30,.12)';
+            context.beginPath(); context.ellipse(width / 2, height * .78, width * .2, 10, 0, 0, Math.PI * 2); context.fill();
+            for (const face of faces) {
+                context.beginPath();
+                face.points.forEach((point, index) => {
+                    const x = width / 2 + point[0] * scale;
+                    const y = height / 2 - point[1] * scale;
+                    if (index === 0) context.moveTo(x, y); else context.lineTo(x, y);
+                });
+                context.closePath();
+                const channel = Math.round(74 + face.light * 104);
+                context.fillStyle = `rgb(${Math.round(channel * .83)}, ${channel}, ${Math.round(channel * .78)})`;
+                context.fill();
+                context.strokeStyle = 'rgba(16,35,30,.11)'; context.lineWidth = .55; context.stroke();
+            }
+            context.restore();
+        }
+
+        function createNamedField(labelText, input) {
+            const label = createElement('label', 'field item-edit-field');
+            label.append(createElement('span', '', labelText), input);
+            return label;
+        }
+
+        function createItemCard(item) {
+            const card = createElement('article', 'order-item');
+            const preview = createElement('div', 'mesh-preview');
+            const canvas = createElement('canvas', 'mesh-canvas');
+            canvas.setAttribute('aria-label', `3D-Vorschau: ${item.file.name}`);
+            preview.append(canvas, createElement('span', 'preview-badge', item.isStl ? 'STL-MODELL' : item.extension.toUpperCase()));
+
+            const content = createElement('div', 'order-item-content');
+            const header = createElement('div', 'order-item-header');
+            const titleWrap = createElement('div', 'order-item-title');
+            titleWrap.append(createElement('span', 'item-kicker', 'DRUCKPOSITION'), createElement('h3', '', item.file.name));
+            const remove = createElement('button', 'remove-item', '×');
+            remove.type = 'button'; remove.setAttribute('aria-label', `${item.file.name} entfernen`); remove.title = 'Datei entfernen';
+            remove.addEventListener('click', () => removeItem(item.id));
+            header.append(titleWrap, remove);
+
+            const summary = createElement('div', 'item-summary');
+            const weightSummary = createElement('span', 'item-weight-summary', item.isStl ? 'STL wird analysiert …' : 'Preis nach Prüfung der Datei');
+            const price = createElement('strong', 'item-price', '—');
+            summary.append(weightSummary, price);
+
+            const controls = createElement('div', 'item-controls');
+            const settings = createElement('details', 'item-settings');
+            const summaryToggle = createElement('summary', '', 'Modell anpassen');
+            const editGrid = createElement('div', 'item-edit-grid');
+            const quantityInput = document.createElement('input');
+            quantityInput.type = 'number'; quantityInput.min = '1'; quantityInput.step = '1'; quantityInput.value = '1'; quantityInput.name = 'item_quantity';
+            quantityInput.setAttribute('aria-label', `Stückzahl für ${item.file.name}`);
+            const materialSelect = document.createElement('select'); materialSelect.name = 'item_material';
+            Object.entries(pricing).forEach(([key, entry]) => {
+                const option = document.createElement('option'); option.value = key; option.textContent = `${entry.label} · ${euro(entry.per_100g)} / 100 g`; materialSelect.append(option);
+            });
+            const infillInput = document.createElement('input');
+            infillInput.type = 'range'; infillInput.name = 'item_infill'; infillInput.min = '0'; infillInput.max = '100'; infillInput.step = '1'; infillInput.value = '15';
+            infillInput.setAttribute('aria-label', `Füllung für ${item.file.name} in Prozent`);
+            const infillControl = createElement('div', 'infill-control');
+            const infillOutput = createElement('output', 'infill-value', '15 %');
+            infillOutput.setAttribute('aria-live', 'polite');
+            infillControl.append(infillInput, infillOutput);
+            editGrid.append(
+                createNamedField('Stückzahl', quantityInput),
+                createNamedField('Material', materialSelect),
+                createNamedField('Füllung', infillControl)
+            );
+            settings.append(summaryToggle, editGrid);
+            controls.append(settings);
+
+            const fileMeta = createElement('span', 'item-file-meta', `${(item.file.size / 1024).toFixed(0)} KB · ${item.extension.toUpperCase()}`);
+            content.append(header, fileMeta, summary, controls);
+            card.append(preview, content);
+            item.card = card; item.canvas = canvas; item.weightSummary = weightSummary; item.priceLabel = price;
+            item.quantityInput = quantityInput; item.materialSelect = materialSelect; item.infillInput = infillInput; item.infillOutput = infillOutput;
+
+            materialSelect.addEventListener('change', updateEstimate);
+            infillInput.addEventListener('input', () => {
+                infillOutput.value = `${infillInput.value} %`;
+                infillOutput.textContent = `${infillInput.value} %`;
+                updateEstimate();
+            });
+            quantityInput.addEventListener('input', updateEstimate);
+
+            orderItems.insertBefore(card, orderEmpty);
+            drawMesh(canvas, item);
+            return card;
+        }
+
+        async function addFile(file) {
+            const extension = file.name.split('.').pop().toLowerCase();
+            if (!['stl', '3mf', 'obj', 'step', 'stp'].includes(extension)) return;
+            const duplicate = selectedItems.some((item) => item.file.name === file.name && item.file.size === file.size && item.file.lastModified === file.lastModified);
+            if (duplicate) return;
+            const item = { id: nextItemId++, file, extension, isStl: extension === 'stl', mesh: null, rotationY: -.6 };
+            selectedItems.push(item);
+            createItemCard(item);
+            orderEmpty.hidden = true;
+            syncFileInput();
+            if (item.isStl) {
+                item.weightSummary.textContent = 'STL wird analysiert …';
+                try {
+                    item.mesh = await readStl(file);
+                    if (!selectedItems.includes(item)) return;
+                    if (item.mesh) {
+                        updateEstimate();
+                    } else {
+                        item.weightSummary.textContent = 'Geometrie nicht lesbar · Preis nach Prüfung';
+                    }
+                } catch (error) {
+                    item.weightSummary.textContent = 'Vorschau nicht verfügbar · Preis nach Prüfung';
+                }
+                drawMesh(item.canvas, item);
+                updateEstimate();
+                installDragRotate(item);
+            }
+            updateEstimate();
+        }
+
+        function installDragRotate(item) {
+            let pointerStart = null;
+            item.canvas.addEventListener('pointerdown', (event) => { pointerStart = event.clientX; item.canvas.setPointerCapture(event.pointerId); });
+            item.canvas.addEventListener('pointermove', (event) => {
+                if (pointerStart === null) return;
+                item.rotationY += (event.clientX - pointerStart) * .012;
+                pointerStart = event.clientX;
+                drawMesh(item.canvas, item);
+            });
+            item.canvas.addEventListener('pointerup', () => { pointerStart = null; });
+            item.canvas.addEventListener('pointercancel', () => { pointerStart = null; });
+        }
+
+        function syncFileInput() {
+            const transfer = new DataTransfer();
+            selectedItems.forEach((item) => transfer.items.add(item.file));
+            fileInput.files = transfer.files;
+        }
+
+        function removeItem(id) {
+            const index = selectedItems.findIndex((item) => item.id === id);
+            if (index < 0) return;
+            selectedItems[index].card.remove();
+            selectedItems.splice(index, 1);
+            orderEmpty.hidden = selectedItems.length !== 0;
+            syncFileInput();
+            updateEstimate();
+        }
+
+        function updateEstimate() {
+            let materialCost = 0, machineCost = 0, totalWeight = 0, totalUnits = 0, pendingItems = 0;
+            selectedItems.forEach((item) => {
+                const rate = pricing[item.materialSelect.value];
+                const infill = number(item.infillInput.value);
+                const units = Math.max(1, Math.floor(number(item.quantityInput.value) || 1));
+                if (!item.mesh) pendingItems++;
+                const effectiveFill = .22 + .78 * infill / 100;
+                const grams = item.mesh ? item.mesh.volume * rate.density * effectiveFill : 0;
+                const height = item.mesh ? Math.max(0, item.mesh.bounds.max[2] - item.mesh.bounds.min[2]) : 0;
+                const hours = item.mesh
+                    ? .15 + item.mesh.volume * effectiveFill / 8 + Math.max(1, height / .2) * 3 / 3600
+                    : 0;
+                const itemMaterial = roundMoney(grams / 100 * rate.per_100g) * units;
+                const itemMachine = roundMoney(hours * rate.per_hour) * units;
+                materialCost += itemMaterial; machineCost += itemMachine;
+                totalWeight += grams * units; totalUnits += units;
+                item.priceLabel.textContent = item.mesh ? euro(itemMaterial + itemMachine) : 'Offen';
+                if (item.mesh) item.weightSummary.textContent = `${item.mesh.volume.toFixed(2)} cm³ · ca. ${grams.toFixed(1)} g · ${hours.toFixed(2)} h pro Stück`;
+            });
+            const subtotal = materialCost + machineCost;
+            const shipping = document.querySelector('input[name="delivery"]:checked').value === 'shipping' ? 4.90 : 0;
+            document.getElementById('materialCost').textContent = euro(materialCost);
+            document.getElementById('machineCost').textContent = euro(machineCost);
+            document.getElementById('subtotal').textContent = euro(subtotal);
+            document.getElementById('shippingCost').textContent = euro(shipping);
+            document.getElementById('total').textContent = pendingItems ? 'Offen' : euro(subtotal + shipping);
+            document.getElementById('estimateHint').textContent = pendingItems
+                ? `Preis für ${pendingItems} Datei${pendingItems === 1 ? '' : 'en'} folgt nach Prüfung`
+                : selectedItems.length ? `${selectedItems.length} Datei${selectedItems.length === 1 ? '' : 'en'} · ${totalUnits} Stück · ca. ${totalWeight.toFixed(1)} g` : 'Dateien hinzufügen, um den Preis zu sehen';
+        }
+
+        fileInput.addEventListener('change', () => {
+            [...fileInput.files].forEach(addFile);
+            syncFileInput();
+        });
+        ['dragenter', 'dragover'].forEach((eventName) => uploadBox.addEventListener(eventName, (event) => { event.preventDefault(); uploadBox.classList.add('dragging'); }));
+        ['dragleave', 'drop'].forEach((eventName) => uploadBox.addEventListener(eventName, (event) => { event.preventDefault(); uploadBox.classList.remove('dragging'); }));
+        uploadBox.addEventListener('drop', (event) => { [...event.dataTransfer.files].forEach(addFile); });
+        document.querySelectorAll('input[name="delivery"]').forEach((element) => element.addEventListener('change', updateEstimate));
+        document.getElementById('printForm').addEventListener('submit', (event) => {
+            if (!selectedItems.length) { event.preventDefault(); alert('Bitte füge zuerst mindestens eine 3D-Datei hinzu.'); return; }
+            document.getElementById('submitButton').disabled = true;
+            document.getElementById('submitButton').firstChild.textContent = 'Wird gespeichert … ';
+        });
+        updateEstimate();
+    </script>
+</body>
+</html>
