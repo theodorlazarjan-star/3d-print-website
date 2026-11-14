@@ -1,12 +1,16 @@
 from pathlib import Path
+import base64
 from email.message import EmailMessage
 from email.utils import parseaddr
+import json
 import mimetypes
 import os
 import re
 import smtplib
 import ssl
 import struct
+from urllib.error import HTTPError, URLError
+from urllib.request import Request, urlopen
 import uuid
 
 from flask import Flask, render_template, request
@@ -25,7 +29,7 @@ MAX_EMAIL_ATTACHMENT_BYTES = 18 * 1024 * 1024
 
 
 class MailNotConfiguredError(Exception):
-    """Raised when the SMTP credentials are missing from the environment."""
+    """Raised when no supported email transport is configured."""
 
 
 class AttachmentSizeError(Exception):
@@ -43,15 +47,69 @@ def valid_email_address(value: str) -> bool:
     return bool(local_part and "." in domain and not domain.startswith(".") and not domain.endswith("."))
 
 
+def send_email_via_resend(
+    subject: str,
+    body: str,
+    reply_to: str,
+    attachments: list[tuple[str, Path]],
+) -> None:
+    api_key = os.environ.get("RESEND_API_KEY", "").strip()
+    if not api_key:
+        raise MailNotConfiguredError
+
+    payload = {
+        "from": os.environ.get(
+            "RESEND_FROM_EMAIL", "Modulix Print <onboarding@resend.dev>"
+        ).strip(),
+        "to": [os.environ.get("ORDER_EMAIL", ORDER_EMAIL).strip()],
+        "subject": subject,
+        "text": body,
+        "reply_to": [reply_to],
+    }
+    if attachments:
+        payload["attachments"] = []
+        for filename, path in attachments:
+            content_type, _ = mimetypes.guess_type(filename)
+            payload["attachments"].append({
+                "filename": filename,
+                "content": base64.b64encode(path.read_bytes()).decode("ascii"),
+                "content_type": content_type or "application/octet-stream",
+            })
+
+    request = Request(
+        "https://api.resend.com/emails",
+        data=json.dumps(payload).encode("utf-8"),
+        headers={
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        },
+        method="POST",
+    )
+    try:
+        with urlopen(request, timeout=25) as response:
+            if response.status < 200 or response.status >= 300:
+                raise RuntimeError(f"Resend API returned HTTP {response.status}")
+            response.read()
+    except HTTPError as error:
+        detail = error.read().decode("utf-8", errors="replace")[:1000]
+        raise RuntimeError(f"Resend API returned HTTP {error.code}: {detail}") from error
+    except URLError as error:
+        raise RuntimeError(f"Could not reach Resend API: {error.reason}") from error
+
+
 def send_order_email(subject: str, body: str, reply_to: str, attachments=()) -> None:
+    attachment_paths = [(filename, Path(path)) for filename, path in attachments]
+    if sum(path.stat().st_size for _, path in attachment_paths) > MAX_EMAIL_ATTACHMENT_BYTES:
+        raise AttachmentSizeError
+
+    if os.environ.get("RESEND_API_KEY", "").strip():
+        send_email_via_resend(subject, body, reply_to, attachment_paths)
+        return
+
     smtp_user = os.environ.get("SMTP_USER", "").strip()
     smtp_password = os.environ.get("SMTP_PASSWORD", "")
     if not smtp_user or not smtp_password:
         raise MailNotConfiguredError
-
-    attachment_paths = [(filename, Path(path)) for filename, path in attachments]
-    if sum(path.stat().st_size for _, path in attachment_paths) > MAX_EMAIL_ATTACHMENT_BYTES:
-        raise AttachmentSizeError
 
     message = EmailMessage()
     message["Subject"] = subject
