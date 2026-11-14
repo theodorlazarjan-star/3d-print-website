@@ -82,6 +82,8 @@ def send_email_via_resend(
         headers={
             "Authorization": f"Bearer {api_key}",
             "Content-Type": "application/json",
+            "Accept": "application/json",
+            "User-Agent": "ModulixPrint/1.0 (https://threed-print-website-15z0.onrender.com)",
         },
         method="POST",
     )
