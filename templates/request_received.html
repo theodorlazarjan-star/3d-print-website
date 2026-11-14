@@ -4,10 +4,15 @@
 <body>
     <nav class="navbar"><a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a><a class="nav-button" href="{{ url_for('home') }}">Zur Startseite</a></nav>
     <main class="feedback-page">
-        <p class="eyebrow">ANFRAGE ERHALTEN</p>
-        <div class="success-mark">✓</div>
+        <p class="eyebrow">{{ 'ANFRAGE PER E-MAIL VERSANDT' if mail_sent else 'ANFRAGE NICHT VERSANDT' }}</p>
+        <div class="success-mark{% if not mail_sent %} mail-error-mark{% endif %}">{{ '✓' if mail_sent else '!' }}</div>
+        {% if mail_sent %}
         <h1>Danke, {{ name }}.</h1>
-        <p class="lead">Deine {{ 'Scan-Anfrage' if service == 'scan' else 'Design-Anfrage' }} ist im Prototyp angekommen. Als Nächstes können Kontaktaufnahme und Auftragsverwaltung angeschlossen werden.</p>
+        <p class="lead">Deine {{ 'Scan-Anfrage' if service == 'scan' else 'Design-Anfrage' }} wurde an <strong>modulixprint@gmail.com</strong> gesendet. Wir melden uns bei dir.</p>
+        {% else %}
+        <h1>Deine Anfrage wurde <em>nicht gesendet.</em></h1>
+        <p class="lead">{{ mail_error }} Du kannst es später erneut versuchen oder direkt an <a href="mailto:modulixprint@gmail.com">modulixprint@gmail.com</a> schreiben.</p>
+        {% endif %}
         <div class="actions"><a class="button button-primary" href="{{ url_for('home') }}">Weitere Leistung ansehen <span>↗</span></a><a class="button button-quiet" href="{{ url_for('submit') }}">3D-Druck starten</a></div>
     </main>
     <footer class="footer"><a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a><p>3D-Druck · Scanning · Design</p><p>© 2026 PrintLab</p></footer>

@@ -1,13 +1,17 @@
 <!doctype html>
 <html lang="de">
-<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PrintLab – Upload gespeichert</title><link rel="stylesheet" href="{{ url_for('static', filename='feedback.css') }}"></head>
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>PrintLab – Druckauftrag</title><link rel="stylesheet" href="{{ url_for('static', filename='feedback.css') }}"></head>
 <body>
     <nav class="navbar"><a class="logo" href="{{ url_for('home') }}">Print<span>Lab</span></a><a class="nav-button" href="{{ url_for('submit') }}">Neuen Druck starten</a></nav>
     <main class="feedback-page">
-        <p class="eyebrow">UPLOAD GESPEICHERT</p>
-        <div class="success-mark">✓</div>
-        <h1>Deine Dateien sind <em>angekommen.</em></h1>
-        <p class="lead">{{ items|length }} Druckposition{% if items|length != 1 %}en{% endif %} wurde{% if items|length != 1 %}n{% endif %} im Projekt gespeichert. Die Werte unten bilden deine vorläufige Kalkulation ab.</p>
+        <p class="eyebrow">{{ 'DRUCKAUFTRAG PER E-MAIL VERSANDT' if mail_sent else 'AUFTRAG NICHT VERSANDT' }}</p>
+        <div class="success-mark{% if not mail_sent %} mail-error-mark{% endif %}">{{ '✓' if mail_sent else '!' }}</div>
+        <h1>{% if mail_sent %}Danke, {{ customer_name }}.{% else %}Anfrage noch <em>nicht gesendet.</em>{% endif %}</h1>
+        {% if mail_sent %}
+        <p class="lead">Dein Auftrag <strong>{{ order_reference }}</strong> wurde an <strong>modulixprint@gmail.com</strong> gesendet. Die 3D-Dateien sind angehängt. Die Werte unten sind eine vorläufige Kalkulation.</p>
+        {% else %}
+        <p class="lead">{{ mail_error }} Du kannst den Auftrag erneut versuchen oder die Dateien direkt an <a href="mailto:modulixprint@gmail.com">modulixprint@gmail.com</a> senden.</p>
+        {% endif %}
         <section class="uploaded-items">
             {% for item in items %}
             <div class="uploaded-item"><div><strong>{{ item.filename }}</strong><span>{{ item.material }} · {{ item.quantity }} × · {% if item.stl_data %}{{ '%.1f'|format(item.weight) }} g pro Stück{% else %}Preis nach Prüfung{% endif %}</span></div><strong>{% if item.stl_data %}{{ '%.2f'|format(item.material_cost + item.machine_cost) }} €{% else %}Offen{% endif %}</strong></div>

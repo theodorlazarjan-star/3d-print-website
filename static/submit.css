@@ -77,9 +77,16 @@ code { background: #eef3e9; color: var(--green-dark); font-family: 'DM Mono', mo
 .field > span { font-size: 11px; font-weight: 800; }
 .field input, .field select { background: #fbfcf9; border: 1px solid var(--line); border-radius: 0; color: var(--ink); font: inherit; font-size: 13px; min-height: 45px; outline: 0; padding: 11px 12px; width: 100%; }
 .field input:focus, .field select:focus { border-color: var(--green-dark); box-shadow: 0 0 0 3px rgba(185,220,82,.18); }
+.field textarea { background: #fbfcf9; border: 1px solid var(--line); border-radius: 0; color: var(--ink); font: inherit; font-size: 13px; min-height: 90px; outline: 0; padding: 11px 12px; resize: vertical; width: 100%; }
+.field textarea:focus { border-color: var(--green-dark); box-shadow: 0 0 0 3px rgba(185,220,82,.18); }
+.field > span small { color: var(--muted); font-size: 10px; font-weight: 500; }
+.order-note { margin-top: 16px; }
 .rate-note { align-items: center; background: #f2f7ec; color: var(--green-dark); display: flex; font-family: 'DM Mono', monospace; font-size: 10px; gap: 9px; margin-top: 20px; padding: 12px; }
 .rate-dot { background: var(--green); border: 1px solid var(--green-dark); border-radius: 50%; height: 8px; width: 8px; }
 .delivery-options { display: grid; gap: 10px; grid-template-columns: 1fr 1fr; }
+.shipping-fields { border-top: 1px solid var(--line); display: grid; gap: 14px; margin-top: 18px; padding-top: 17px; }
+.shipping-fields[hidden] { display: none; }
+.shipping-title { font-size: 11px; font-weight: 800; }
 .delivery-option { cursor: pointer; }
 .delivery-option input { display: none; }
 .delivery-option > span { border: 1px solid var(--line); display: block; min-height: 108px; padding: 18px; transition: background .2s, border-color .2s; }

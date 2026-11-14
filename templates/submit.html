@@ -42,21 +42,39 @@
                 <div class="order-items" id="orderItems" aria-live="polite">
                     <div class="order-empty" id="orderEmpty">Deine Druckdateien erscheinen hier als Bestellpositionen.</div>
                 </div>
-                <p class="field-hint">STL-Vorschau und Preis erscheinen direkt als Bestellposition. Material und Füllung kannst du unter „Modell anpassen“ ändern.</p>
+                <p class="field-hint">STL-Vorschau und Preis erscheinen direkt als Bestellposition. Material und Füllung kannst du unter „Modell anpassen“ ändern. Damit die Dateien per E-Mail mitkommen, dürfen sie zusammen höchstens 18 MB groß sein.</p>
             </section>
 
             <div class="form-grid">
                 <section class="form-card">
-                    <div class="card-heading"><span>02</span><div><h2>Übergabe</h2><p>Wie soll dein fertiges Teil zu dir kommen?</p></div></div>
+                    <div class="card-heading"><span>02</span><div><h2>Deine Kontaktdaten</h2><p>Damit wir deinen Auftrag zuordnen und dir antworten können.</p></div></div>
+                    <div class="field-grid">
+                        <label class="field"><span>Name</span><input name="customer_name" type="text" autocomplete="name" maxlength="120" required placeholder="Dein Name"></label>
+                        <label class="field"><span>E-Mail</span><input name="customer_email" type="email" autocomplete="email" maxlength="254" required placeholder="du@beispiel.de"></label>
+                    </div>
+                    <label class="field order-note"><span>Zusätzliche Nachricht <small>(optional)</small></span><textarea name="customer_note" rows="3" maxlength="5000" placeholder="Besondere Wünsche oder Hinweise zu deinem Druck …"></textarea></label>
+                </section>
+
+                <section class="form-card">
+                    <div class="card-heading"><span>03</span><div><h2>Übergabe</h2><p>Wie soll dein fertiges Teil zu dir kommen?</p></div></div>
                     <div class="delivery-options">
                         <label class="delivery-option"><input type="radio" name="delivery" value="pickup" checked><span><strong>Abholung</strong><small>Persönlich und ohne Versandkosten</small></span></label>
                         <label class="delivery-option"><input type="radio" name="delivery" value="shipping"><span><strong>Versand</strong><small>Versandpauschale 4,90 €</small></span></label>
+                    </div>
+                    <div class="shipping-fields" id="shippingFields" hidden>
+                        <p class="shipping-title">Versandadresse</p>
+                        <label class="field"><span>Straße und Hausnummer</span><input name="shipping_address" type="text" autocomplete="street-address" maxlength="200" data-shipping-field disabled></label>
+                        <div class="field-grid">
+                            <label class="field"><span>Postleitzahl</span><input name="shipping_postcode" type="text" autocomplete="postal-code" maxlength="20" data-shipping-field disabled></label>
+                            <label class="field"><span>Ort</span><input name="shipping_city" type="text" autocomplete="address-level2" maxlength="100" data-shipping-field disabled></label>
+                        </div>
+                        <label class="field"><span>Land</span><input name="shipping_country" type="text" autocomplete="country-name" maxlength="80" placeholder="z. B. Liechtenstein" data-shipping-field disabled></label>
                     </div>
                 </section>
             </div>
 
             <section class="form-card order-card">
-                <div class="card-heading"><span>03</span><div><h2>Vorläufige Kalkulation</h2><p>Die Werte dienen als erste Orientierung und werden vor dem Druck bestätigt.</p></div></div>
+                <div class="card-heading"><span>04</span><div><h2>Vorläufige Kalkulation</h2><p>Die Werte dienen als erste Orientierung und werden vor dem Druck bestätigt.</p></div></div>
                 <div class="estimate-layout">
                     <div class="estimate-lines">
                         <div><span>Material</span><strong id="materialCost">0,00 €</strong></div>
@@ -67,7 +85,7 @@
                     <div class="estimate-total"><span>Gesamtschätzung</span><strong id="total">0,00 €</strong><small id="estimateHint">Dateien hinzufügen, um den Preis zu sehen</small></div>
                 </div>
                 <button class="button button-primary submit-button" id="submitButton" type="submit">Druckauftrag senden <span>↗</span></button>
-                <p class="form-hint">Mit dem Absenden wird die Datei lokal im Projekt gespeichert. Eine echte Bestell- und Zahlungsabwicklung kann später angeschlossen werden.</p>
+                <p class="form-hint">Deine Angaben und 3D-Dateien werden per E-Mail an Modulix Print gesendet. Die angezeigte Kalkulation ist eine unverbindliche Schätzung.</p>
             </section>
         </form>
     </main>
@@ -80,6 +98,7 @@
         const uploadBox = document.getElementById('uploadBox');
         const orderItems = document.getElementById('orderItems');
         const orderEmpty = document.getElementById('orderEmpty');
+        const shippingFields = document.getElementById('shippingFields');
         const selectedItems = [];
         let nextItemId = 1;
 
@@ -373,12 +392,25 @@
         ['dragenter', 'dragover'].forEach((eventName) => uploadBox.addEventListener(eventName, (event) => { event.preventDefault(); uploadBox.classList.add('dragging'); }));
         ['dragleave', 'drop'].forEach((eventName) => uploadBox.addEventListener(eventName, (event) => { event.preventDefault(); uploadBox.classList.remove('dragging'); }));
         uploadBox.addEventListener('drop', (event) => { [...event.dataTransfer.files].forEach(addFile); });
-        document.querySelectorAll('input[name="delivery"]').forEach((element) => element.addEventListener('change', updateEstimate));
+        function updateDeliveryFields() {
+            const needsAddress = document.querySelector('input[name="delivery"]:checked').value === 'shipping';
+            shippingFields.hidden = !needsAddress;
+            shippingFields.querySelectorAll('[data-shipping-field]').forEach((input) => {
+                input.disabled = !needsAddress;
+                input.required = needsAddress;
+            });
+        }
+
+        document.querySelectorAll('input[name="delivery"]').forEach((element) => element.addEventListener('change', () => {
+            updateDeliveryFields();
+            updateEstimate();
+        }));
         document.getElementById('printForm').addEventListener('submit', (event) => {
             if (!selectedItems.length) { event.preventDefault(); alert('Bitte füge zuerst mindestens eine 3D-Datei hinzu.'); return; }
             document.getElementById('submitButton').disabled = true;
             document.getElementById('submitButton').firstChild.textContent = 'Wird gespeichert … ';
         });
+        updateDeliveryFields();
         updateEstimate();
     </script>
 </body>

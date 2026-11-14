@@ -1,5 +1,11 @@
 from pathlib import Path
+from email.message import EmailMessage
+from email.utils import parseaddr
+import mimetypes
+import os
 import re
+import smtplib
+import ssl
 import struct
 import uuid
 
@@ -13,6 +19,62 @@ UPLOAD_FOLDER.mkdir(exist_ok=True)
 
 app = Flask(__name__)
 app.config["MAX_CONTENT_LENGTH"] = 50 * 1024 * 1024
+
+ORDER_EMAIL = "modulixprint@gmail.com"
+MAX_EMAIL_ATTACHMENT_BYTES = 18 * 1024 * 1024
+
+
+class MailNotConfiguredError(Exception):
+    """Raised when the SMTP credentials are missing from the environment."""
+
+
+class AttachmentSizeError(Exception):
+    """Raised when uploaded files exceed a safe email attachment size."""
+
+
+def valid_email_address(value: str) -> bool:
+    value = value.strip()
+    if not value or len(value) > 254 or "\r" in value or "\n" in value:
+        return False
+    parsed = parseaddr(value)[1]
+    if parsed != value or value.count("@") != 1 or any(char.isspace() for char in value):
+        return False
+    local_part, domain = value.rsplit("@", 1)
+    return bool(local_part and "." in domain and not domain.startswith(".") and not domain.endswith("."))
+
+
+def send_order_email(subject: str, body: str, reply_to: str, attachments=()) -> None:
+    smtp_user = os.environ.get("SMTP_USER", "").strip()
+    smtp_password = os.environ.get("SMTP_PASSWORD", "")
+    if not smtp_user or not smtp_password:
+        raise MailNotConfiguredError
+
+    attachment_paths = [(filename, Path(path)) for filename, path in attachments]
+    if sum(path.stat().st_size for _, path in attachment_paths) > MAX_EMAIL_ATTACHMENT_BYTES:
+        raise AttachmentSizeError
+
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = smtp_user
+    message["To"] = os.environ.get("ORDER_EMAIL", ORDER_EMAIL).strip()
+    message["Reply-To"] = reply_to
+    message.set_content(body)
+
+    for filename, path in attachment_paths:
+        content_type, _ = mimetypes.guess_type(filename)
+        maintype, subtype = (content_type or "application/octet-stream").split("/", 1)
+        message.add_attachment(
+            path.read_bytes(), maintype=maintype, subtype=subtype, filename=filename
+        )
+
+    smtp_host = os.environ.get("SMTP_HOST", "smtp.gmail.com").strip()
+    smtp_port = int(os.environ.get("SMTP_PORT", "587"))
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=25) as server:
+        server.ehlo()
+        server.starttls(context=ssl.create_default_context())
+        server.ehlo()
+        server.login(smtp_user, smtp_password)
+        server.send_message(message)
 
 ALLOWED_EXTENSIONS = {"stl", "3mf", "obj", "step", "stp"}
 
@@ -215,21 +277,44 @@ def upload():
             error="Dieses Dateiformat wird noch nicht unterstützt. Erlaubt sind STL, 3MF, OBJ und STEP.",
         ), 400
 
+    customer_name = request.form.get("customer_name", "").strip()
+    customer_email = request.form.get("customer_email", "").strip()
+    customer_note = request.form.get("customer_note", "").strip()
+    if len(customer_name) > 120 or len(customer_note) > 5000 or not customer_name or not valid_email_address(customer_email):
+        return render_template(
+            "submit.html",
+            error="Bitte gib einen Namen, eine gültige E-Mail-Adresse und eine höchstens 5.000 Zeichen lange Nachricht an.",
+        ), 400
+
+    delivery = request.form.get("delivery", "pickup")
+    if delivery not in {"pickup", "shipping"}:
+        delivery = "pickup"
+    shipping_address = request.form.get("shipping_address", "").strip()
+    shipping_postcode = request.form.get("shipping_postcode", "").strip()
+    shipping_city = request.form.get("shipping_city", "").strip()
+    shipping_country = request.form.get("shipping_country", "").strip()
+    if delivery == "shipping" and not all((shipping_address, shipping_postcode, shipping_city, shipping_country)):
+        return render_template(
+            "submit.html",
+            error="Für den Versand fülle bitte die vollständige Versandadresse aus.",
+        ), 400
+
     materials = request.form.getlist("item_material")
     infills = request.form.getlist("item_infill")
     quantities = request.form.getlist("item_quantity")
-    delivery = request.form.get("delivery", "pickup")
     items = []
     material_total = 0.0
     machine_total = 0.0
     total_quantity = 0
     total_weight = 0.0
+    saved_files = []
 
     for index, file in enumerate(files):
-        original_filename = secure_filename(file.filename)
+        original_filename = secure_filename(file.filename) or "3d-modell"
         stored_filename = f"{uuid.uuid4().hex[:8]}_{original_filename}"
         file_path = UPLOAD_FOLDER / stored_filename
         file.save(file_path)
+        saved_files.append((original_filename, file_path))
 
         material = materials[index] if index < len(materials) else "PLA"
         quantity = quantities[index] if index < len(quantities) else "1"
@@ -286,10 +371,83 @@ def upload():
         "complete": all(item["stl_data"] is not None for item in items),
     }
 
+    order_reference = uuid.uuid4().hex[:8].upper()
+    delivery_label = "Versand" if delivery == "shipping" else "Abholung"
+    mail_lines = [
+        f"Druckauftrag {order_reference}",
+        "",
+        f"Name: {customer_name}",
+        f"E-Mail: {customer_email}",
+        f"Übergabe: {delivery_label}",
+    ]
+    if delivery == "shipping":
+        mail_lines.extend([
+            "Versandadresse:",
+            shipping_address,
+            f"{shipping_postcode} {shipping_city}",
+            shipping_country,
+        ])
+    if customer_note:
+        mail_lines.extend(["", "Nachricht:", customer_note])
+    mail_lines.extend(["", "Positionen:"])
+    for index, item in enumerate(items, start=1):
+        item_total = item["material_cost"] + item["machine_cost"]
+        mail_lines.extend([
+            f"{index}. {item['filename']}",
+            f"   Material: {item['material']}",
+            f"   Stückzahl: {item['quantity']}",
+            f"   Füllung: {item['infill']} %",
+        ])
+        if item["stl_data"]:
+            mail_lines.extend([
+                f"   Geschätztes Gewicht pro Stück: {item['weight']:.1f} g",
+                f"   Geschätzte Druckzeit pro Stück: {item['hours']:.2f} h",
+                f"   Positionsschätzung: {item_total:.2f} €",
+            ])
+        else:
+            mail_lines.append("   Gewicht und Preis: nach Prüfung der Datei")
+    mail_lines.extend([
+        "",
+        f"Materialkosten gesamt: {estimate['material_cost']:.2f} €",
+        f"Maschinenzeit gesamt: {estimate['machine_cost']:.2f} €",
+        f"Versand: {estimate['shipping']:.2f} €",
+        f"Gesamtschätzung: {estimate['total']:.2f} €" if estimate["complete"] else "Gesamtschätzung: nach Prüfung der Dateien",
+        "",
+        "Die angehängten Dateien sind die vom Kunden hochgeladenen 3D-Modelle.",
+    ])
+
+    mail_sent = False
+    mail_error = ""
+    try:
+        send_order_email(
+            f"[PrintLab] Druckauftrag {order_reference}",
+            "\n".join(mail_lines),
+            customer_email,
+            saved_files,
+        )
+        mail_sent = True
+    except MailNotConfiguredError:
+        mail_error = "Der E-Mail-Versand ist auf dem Server noch nicht eingerichtet. Deine Anfrage wurde nicht abgeschickt."
+    except AttachmentSizeError:
+        mail_error = "Die Dateien sind zusammen zu groß für den E-Mail-Versand (maximal 18 MB). Bitte teile den Auftrag auf oder verkleinere die Dateien."
+    except Exception:
+        app.logger.exception("Could not send print order email")
+        mail_error = "Der E-Mail-Versand ist gerade fehlgeschlagen. Deine Anfrage wurde nicht abgeschickt; bitte versuche es später erneut."
+    finally:
+        for _, file_path in saved_files:
+            try:
+                file_path.unlink(missing_ok=True)
+            except OSError:
+                app.logger.warning("Could not remove temporary upload %s", file_path.name)
+
     return render_template(
         "upload_success.html",
         items=items,
         estimate=estimate,
+        customer_name=customer_name,
+        order_reference=order_reference,
+        mail_sent=mail_sent,
+        mail_error=mail_error,
     )
 
 
@@ -299,10 +457,48 @@ def service_request():
     if service not in {"scan", "design"}:
         service = "scan"
 
+    name = request.form.get("name", "").strip()
+    email = request.form.get("email", "").strip()
+    message = request.form.get("message", "").strip()
+    mail_sent = False
+    mail_error = ""
+
+    if not name or not valid_email_address(email) or not message:
+        mail_error = "Bitte gib Name, eine gültige E-Mail-Adresse und eine kurze Beschreibung an."
+        return render_template(
+            "request_received.html",
+            service=service,
+            name=name or "",
+            mail_sent=False,
+            mail_error=mail_error,
+        ), 400
+
+    service_label = "3D-Scan" if service == "scan" else "3D-Design"
+    subject = f"[PrintLab] {service_label}-Anfrage"
+    body = "\n".join([
+        f"Neue {service_label}-Anfrage",
+        "",
+        f"Name: {name}",
+        f"E-Mail: {email}",
+        "",
+        "Beschreibung:",
+        message,
+    ])
+    try:
+        send_order_email(subject, body, email)
+        mail_sent = True
+    except MailNotConfiguredError:
+        mail_error = "Der E-Mail-Versand ist auf dem Server noch nicht eingerichtet. Deine Anfrage wurde nicht abgeschickt."
+    except Exception:
+        app.logger.exception("Could not send service request email")
+        mail_error = "Der E-Mail-Versand ist gerade fehlgeschlagen. Deine Anfrage wurde nicht abgeschickt; bitte versuche es später erneut."
+
     return render_template(
         "request_received.html",
         service=service,
-        name=request.form.get("name", "").strip() or "dein Name",
+        name=name,
+        mail_sent=mail_sent,
+        mail_error=mail_error,
     )
 
 
